@@ -1,0 +1,89 @@
+import { useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, Trophy } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { useDemo } from "@/lib/demo-store";
+import { tr } from "@/lib/i18n";
+import { fmtDate } from "@/lib/format";
+import { REASON_MIN_LENGTH } from "@/config/demo-config";
+import { IcNotice, WarnLine, field, sel } from "../ui-bits";
+import { CAUSE_LABEL, CRITERION_LABEL, QUAL_LABEL, QUAL_TONE, SKIP_LABEL, StandingsTable, VIA_LABEL, finalsAlertText, teamName } from "./d4-text";
+import { computeD4 } from "./d4state";
+import { CRITERIA, defaultRules, type Criterion, type PoolTable, type RulesConfig } from "./standings";
+import type { FinalsPlan } from "./finals";
+import { clubName } from "../d3/d3-text";
+
+const greenBtn = "bg-emerald-700 text-white hover:bg-emerald-800 min-h-11 md:min-h-9";
+/** D4 — Classements et phases finales (Commission). Tout est SIMULATION : barème, départages, qualifications — rien n'est officiel. */
+export default function Standings() {
+  const { ic, allowed, icAct } = useDemo(); const [mode, setMode] = useState<"validated" | "preview">("validated"); const canRules = allowed("d4.rules"); const d4 = ic.d4;
+  const c = useMemo(() => computeD4(ic, mode), [ic, mode]); const divisions = [...new Set(c.tables.map((t) => t.division))];
+  return (<div className="space-y-5" data-standings>
+    <IcNotice />
+    <p className="rounded-md border border-amber-500/60 bg-amber-500/10 p-2 text-sm" data-d4-notice>{tr("Standings, tie-breaks and qualifications below use unapproved simulation rules. Championship points are NOT the individual MPL ranking points. Nothing is official or published.")}</p>
+    <RulesPanel canEdit={canRules} />
+    <div className="flex flex-wrap items-end gap-3"><div className="w-full sm:w-80"><label htmlFor="d4-mode" className="mb-1 block text-sm font-medium">{tr("Results taken into account")}</label>
+      <select id="d4-mode" className={sel} value={mode} onChange={(e) => setMode(e.target.value as "validated" | "preview")} data-d4-mode><option value="validated">{tr("Validated in demonstration only")}</option><option value="preview">{tr("Preview: include submitted and referee-checked results")}</option></select></div>
+      {mode === "preview" && <WarnLine level="warn"><span data-preview-warning>{tr("Preview before validation: these standings are provisional and never final.")}</span></WarnLine>}</div>
+    {!c.tables.length ? <p className="rounded-xl border bg-card p-6 text-center text-sm text-muted-foreground" data-standings-empty>{tr("No standings yet: generate the pools and the calendar in Preparation, then create the match sheets.")}</p> : divisions.map((d) => (
+      <section key={d} className="space-y-3" data-standings-division={d}><h3 className="text-lg font-semibold">{d}</h3>
+        {c.tables.filter((t) => t.division === d).map((t) => (<div key={t.pool} className="space-y-2"><StandingsTable t={t} />{t.unresolvedGroups.map((g, i) => <DecideForm key={i} t={t} group={g} />)}</div>))}
+        <FinalsPanel plan={c.plans[d]} outcomes={c.outcomes} champion={c.champions.find((x) => x.division === d)?.team} />
+      </section>))}
+    {c.skipped.length > 0 && <details className="rounded-xl border p-3" data-skipped><summary className="cursor-pointer text-sm font-semibold">{tr("Sheets not counted")} ({c.skipped.length})</summary><ul className="mt-2 space-y-1 text-sm">{c.skipped.map((x) => <li key={x.sheetId}>{x.sheetId} — {SKIP_LABEL[x.reason]}</li>)}</ul></details>}
+    <section className="space-y-2" data-recalc-history><h2 className="text-lg font-semibold">{tr("Recalculation history")}</h2>
+      {d4.history.length === 0 ? <p className="text-sm text-muted-foreground">{tr("No recalculation yet.")}</p> : <div className="overflow-x-auto rounded-xl border"><table className="w-full min-w-[560px] text-sm"><thead className="bg-muted/60"><tr><th scope="col" className="px-2 py-2 text-left">#</th><th scope="col" className="px-2 py-2 text-left">{tr("Date")}</th><th scope="col" className="px-2 py-2 text-left">{tr("Cause")}</th><th scope="col" className="px-2 py-2 text-left">{tr("Rules version")}</th><th scope="col" className="px-2 py-2 text-left">{tr("Results counted")}</th><th scope="col" className="px-2 py-2 text-left">{tr("Divisions")}</th></tr></thead>
+        <tbody>{d4.history.map((h) => (<tr key={h.n} className="border-t" data-recalc-row><td className="px-2 py-1.5">{h.n}</td><td className="px-2 py-1.5 whitespace-nowrap">{h.at.slice(0, 16).replace("T", " ")}</td><td className="px-2 py-1.5">{CAUSE_LABEL[h.cause]}</td><td className="px-2 py-1.5">v{h.rulesVersion}</td><td className="px-2 py-1.5">{h.counted}</td><td className="px-2 py-1.5">{h.divisions.join(", ") || "—"}</td></tr>))}</tbody></table></div>}
+      {d4.rulesHistory.length > 0 && <details className="rounded-xl border p-3"><summary className="cursor-pointer text-sm font-semibold">{tr("Rules versions")} ({d4.rulesHistory.length + 1})</summary><ul className="mt-2 space-y-1 text-sm" data-rules-versions><li>v1 — {tr("Simulation defaults")}</li>{d4.rulesHistory.map((v) => <li key={v.version}>v{v.version} — {v.actor} — {v.note}</li>)}</ul></details>}</section>
+  </div>);
+}
+
+function RulesPanel({ canEdit }: { canEdit: boolean }) {
+  const { ic, icAct } = useDemo(); const cur = ic.d4.rules; const [r, setR] = useState<RulesConfig>(cur); const [note, setNote] = useState(""); const ok = note.trim().length >= REASON_MIN_LENGTH;
+  const num = (v: string) => Math.max(0, Math.min(20, Math.floor(Number(v) || 0)));
+  const move = (i: number, d: -1 | 1) => { const o = [...r.order]; const j = i + d; if (j < 0 || j >= o.length) return; [o[i], o[j]] = [o[j], o[i]]; setR({ ...r, order: o }); };
+  const toggle = (c: Criterion) => setR({ ...r, order: r.order.includes(c) ? r.order.filter((x) => x !== c) : [...r.order, c] });
+  const apply = () => { icAct({ k: "d4Rules", patch: { scale: r.scale, order: r.order, stbAsGame: r.stbAsGame, walkoverSets: r.walkoverSets, walkoverGames: r.walkoverGames, creditTieForfeitStats: r.creditTieForfeitStats, pairing: r.pairing, useBestRunnersUp: r.useBestRunnersUp }, note }); toast.success(tr("Rules updated — standings recalculated")); setNote(""); };
+  const S: Array<[keyof RulesConfig["scale"], string]> = [["win30", tr("Win 3–0")], ["win21", tr("Win 2–1")], ["loss12", tr("Loss 1–2")], ["loss03", tr("Loss 0–3")], ["forfeitWin", tr("Forfeit — win")], ["forfeitLoss", tr("Forfeit — loss")]];
+  return (<details className="rounded-xl border bg-card p-4" data-d4-rules open><summary className="cursor-pointer text-sm font-semibold">{tr("Points scale and tie-break order")} — <span data-rules-version>{tr("rules version")} {cur.version}</span> · <span className="text-rose-700 dark:text-rose-300">{tr("simulation values, NOT approved")}</span></summary>
+    <div className="mt-3 grid gap-4 lg:grid-cols-2">
+      <fieldset className="space-y-2" disabled={!canEdit}><legend className="text-sm font-semibold">{tr("Championship points (Interclub only)")}</legend><div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{S.map(([k, l]) => (<div key={k}><label className="mb-1 block text-xs" htmlFor={`sc-${k}`}>{l}</label><input id={`sc-${k}`} type="number" min={0} max={20} className={field} value={r.scale[k]} onChange={(e) => setR({ ...r, scale: { ...r.scale, [k]: num(e.target.value) } })} data-scale={k} /></div>))}</div>
+        <div className="grid grid-cols-2 gap-2"><div><label className="mb-1 block text-xs" htmlFor="wo-sets">{tr("Forfeited match: sets credited")}</label><input id="wo-sets" type="number" min={0} max={30} className={field} value={r.walkoverSets} onChange={(e) => setR({ ...r, walkoverSets: num(e.target.value) })} /></div><div><label className="mb-1 block text-xs" htmlFor="wo-games">{tr("Forfeited match: games credited")}</label><input id="wo-games" type="number" min={0} max={30} className={field} value={r.walkoverGames} onChange={(e) => setR({ ...r, walkoverGames: num(e.target.value) })} /></div></div>
+        <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={r.stbAsGame} onChange={(e) => setR({ ...r, stbAsGame: e.target.checked })} />{tr("A super tie-break counts as 1 set and 1 game")}</label>
+        <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={r.creditTieForfeitStats} onChange={(e) => setR({ ...r, creditTieForfeitStats: e.target.checked })} />{tr("Total team forfeit: credit match, set and game statistics")}</label></fieldset>
+      <fieldset className="space-y-2" disabled={!canEdit}><legend className="text-sm font-semibold">{tr("Tie-break order")}</legend><ol className="space-y-1" data-order>{r.order.map((c, i) => (<li key={c} className="flex items-center gap-2 rounded-md border p-1.5 text-sm"><span className="w-5 text-center font-semibold">{i + 1}</span><span className="flex-1">{CRITERION_LABEL[c]}</span>
+        <Button type="button" size="sm" variant="outline" className="h-11 w-11 p-0 md:h-9 md:w-9" aria-label={`${tr("Move up")}: ${CRITERION_LABEL[c]}`} onClick={() => move(i, -1)} disabled={i === 0} data-order-up={c}><ArrowUp className="size-4" /></Button>
+        <Button type="button" size="sm" variant="outline" className="h-11 w-11 p-0 md:h-9 md:w-9" aria-label={`${tr("Move down")}: ${CRITERION_LABEL[c]}`} onClick={() => move(i, 1)} disabled={i === r.order.length - 1} data-order-down={c}><ArrowDown className="size-4" /></Button>
+        {c !== "points" && <Button type="button" size="sm" variant="outline" className="h-11 md:h-9" onClick={() => toggle(c)} data-order-remove={c}>{tr("Remove")}</Button>}</li>))}</ol>
+        {CRITERIA.filter((c) => !r.order.includes(c)).length > 0 && <div className="flex flex-wrap gap-2">{CRITERIA.filter((c) => !r.order.includes(c)).map((c) => <Button key={c} type="button" size="sm" variant="outline" className="h-11 md:h-9" onClick={() => toggle(c)} data-order-add={c}>+ {CRITERION_LABEL[c]}</Button>)}</div>}
+        <div><label htmlFor="d4-pairing" className="mb-1 block text-xs">{tr("Semi-final pairing")}</label><select id="d4-pairing" className={sel} value={r.pairing} onChange={(e) => setR({ ...r, pairing: e.target.value as RulesConfig["pairing"] })}><option value="seeded">{tr("By seed (1–4, 2–3)")}</option><option value="cross_pool">{tr("Avoid same-pool teams when possible")}</option></select></div>
+        <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={r.useBestRunnersUp} onChange={(e) => setR({ ...r, useBestRunnersUp: e.target.checked })} />{tr("Use best runners-up to fill the final phases")}</label></fieldset></div>
+    {canEdit ? <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto_auto] sm:items-end"><div><label htmlFor="d4-note" className="mb-1 block text-sm font-medium">{tr("Reason for the change (required)")}</label><input id="d4-note" className={field} value={note} onChange={(e) => setNote(e.target.value)} data-d4-note /></div>
+      <Button className={greenBtn} disabled={!ok} onClick={apply} data-d4-apply>{tr("Apply as a new rules version")}</Button><Button variant="outline" className="min-h-11 md:min-h-9" disabled={!ok} onClick={() => { icAct({ k: "d4RulesReset", note }); setR({ ...defaultRules(), version: cur.version + 1 }); setNote(""); toast.success(tr("Rules reset to the simulation defaults")); }} data-d4-reset>{tr("Reset to defaults")}</Button></div> : <p className="mt-2 text-sm text-muted-foreground">{tr("Only the Commission can change the rules.")}</p>}</details>);
+}
+
+function DecideForm({ t, group }: { t: PoolTable; group: string[] }) {
+  const { icAct, allowed } = useDemo(); const [order, setOrder] = useState<string[]>(group); const [reason, setReason] = useState(""); const ok = reason.trim().length >= REASON_MIN_LENGTH && new Set(order).size === group.length;
+  if (!allowed("d4.decide")) return <WarnLine level="block"><span data-tie-unresolved>{tr("Commission decision required")}: {group.map(teamName).join(" · ")}</span></WarnLine>;
+  return (<div className="space-y-2 rounded-xl border border-rose-500/60 bg-rose-500/10 p-3" data-tie-unresolved><p className="text-sm font-semibold">{tr("Commission decision required")}: {group.map(teamName).join(" · ")}</p><p className="text-xs">{tr("These teams cannot be separated by the configured criteria. Record a simulated decision to order them.")}</p>
+    <div className="grid gap-2 sm:grid-cols-3">{group.map((_, i) => (<div key={i}><label className="mb-1 block text-xs" htmlFor={`dec-${t.division}-${t.pool}-${i}`}>{tr("Position")} {i + 1}</label><select id={`dec-${t.division}-${t.pool}-${i}`} className={sel} value={order[i]} onChange={(e) => setOrder(order.map((x, j) => (j === i ? e.target.value : x)))} data-decide-pos={i}>{group.map((g) => <option key={g} value={g}>{teamName(g)}</option>)}</select></div>))}</div>
+    <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end"><div><label className="mb-1 block text-xs" htmlFor={`decr-${t.division}-${t.pool}`}>{tr("Reason (required)")}</label><input id={`decr-${t.division}-${t.pool}`} className={field} value={reason} onChange={(e) => setReason(e.target.value)} data-decide-reason /></div>
+      <Button className={greenBtn} disabled={!ok} onClick={() => { icAct({ k: "d4Decide", division: t.division, pool: t.pool, order, reason }); toast.success(tr("Decision recorded (simulated)")); }} data-decide>{tr("Record the decision")}</Button></div></div>);
+}
+
+function FinalsPanel({ plan, outcomes, champion }: { plan?: FinalsPlan; outcomes: ReturnType<typeof computeD4>["outcomes"]; champion?: string }) {
+  const { ic, icAct, allowed } = useDemo(); if (!plan) return null; const can = allowed("d4.finals"); const sheets = ic.d3.sheets; const fin = ["SF1", "SF2", "F"].map((st) => sheets[`FR-${plan.division}.${st}`]).filter(Boolean);
+  const resOf = (id: string) => outcomes.find((o) => o.sheetId === id && o.status === "counted");
+  return (<div className="space-y-2 rounded-xl border bg-card p-3" data-finals={plan.division}><h4 className="flex items-center gap-2 font-semibold"><Trophy className="size-4" />{tr("Final phases")} — {plan.division}</h4>
+    {champion && <p className="rounded-md bg-emerald-800 px-3 py-2 text-sm font-semibold text-white" data-champion>{tr("Champion (demonstration)")}: {teamName(champion)} <span className="font-normal">— {tr("not an official title")}</span></p>}
+    {!plan.hasSemis && !plan.hasFinal ? <p className="text-sm text-muted-foreground" data-no-finals>{plan.poolChampion ? tr("No final phase: the pool leader is champion in demonstration once the pool is finished.") : tr("No final phase for this division in the current format.")}</p> : <>
+      <div className="overflow-x-auto rounded-md border"><table className="w-full min-w-[520px] text-sm"><caption className="p-2 text-left text-sm font-semibold">{tr("Qualification table")}</caption><thead className="bg-muted/60"><tr><th scope="col" className="px-2 py-1.5 text-left">{tr("Seed")}</th><th scope="col" className="px-2 py-1.5 text-left">{tr("Team")}</th><th scope="col" className="px-2 py-1.5 text-left">{tr("Via")}</th><th scope="col" className="px-2 py-1.5 text-left">{tr("Status")}</th></tr></thead>
+        <tbody>{plan.qualifiers.length === 0 ? <tr><td colSpan={4} className="px-2 py-2 text-muted-foreground">{tr("No qualifier yet.")}</td></tr> : plan.qualifiers.map((q) => (<tr key={q.team} className="border-t" data-qualifier={q.team}><td className="px-2 py-1.5">{q.seed}</td><td className="px-2 py-1.5">{teamName(q.team)}</td><td className="px-2 py-1.5">{VIA_LABEL[q.via]}{q.via !== "top" ? ` (${tr("pool")} ${q.pool})` : ""}</td><td className="px-2 py-1.5"><span data-qual-status={q.status} className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${QUAL_TONE[q.status]}`}>{QUAL_LABEL[q.status]}</span></td></tr>))}</tbody></table></div>
+      {plan.semis.length > 0 && <ul className="text-sm" data-semis>{plan.semis.map((s) => <li key={s.stage}>{s.stage === "SF1" ? tr("Semi-final 1") : tr("Semi-final 2")}: {teamName(s.a)} {tr("vs")} {teamName(s.b)}</li>)}</ul>}
+      {fin.length > 0 && <ul className="space-y-1 text-sm" data-finals-sheets>{fin.map((sh) => { const o = resOf(sh.id); return (<li key={sh.id}>{sh.phase === "F" ? tr("Final") : sh.phase === "SF1" ? tr("Semi-final 1") : tr("Semi-final 2")}: {teamName(sh.home)} {tr("vs")} {teamName(sh.away)} — {o ? <strong>{o.label} ({tr("winner")}: {teamName(o.winner === "A" ? o.home : o.away)})</strong> : <span>{tr("not validated yet")} ({fmtDate(sh.date)})</span>} <span className="text-xs text-muted-foreground">· {tr("same match sheet and workflow as the pool ties")}</span></li>); })}</ul>}
+      {can && <div className="flex flex-wrap gap-2"><Button className={greenBtn} disabled={fin.length > 0} onClick={() => { icAct({ k: "d4FinalsGenerate", division: plan.division }); toast.success(tr("Semi-final sheets generated (demonstration)")); }} data-finals-generate>{tr("Generate the semi-final sheets")}</Button>
+        {plan.hasFinal && <Button variant="outline" className="min-h-11 md:min-h-9" disabled={!fin.some((s) => s.phase === "SF1") || fin.some((s) => s.phase === "F")} onClick={() => { icAct({ k: "d4FinalsAdvance", division: plan.division }); toast.success(tr("Final sheet generated (demonstration)")); }} data-finals-advance>{tr("Generate the final")}</Button>}</div>}</>}
+    {plan.alerts.length > 0 && <ul className="space-y-1" data-finals-alerts>{plan.alerts.map((a, i) => <WarnLine key={i} level={a.code === "unresolved_tie" || a.code === "slot_unscheduled" ? "block" : "warn"}>{finalsAlertText(a)}</WarnLine>)}</ul>}
+    <p className="text-xs text-muted-foreground">{tr("No team is definitively qualified by a rule that is not approved: statuses are provisional or demonstration only.")}</p></div>);
+}
+void clubName;

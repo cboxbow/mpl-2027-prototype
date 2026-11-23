@@ -1,0 +1,124 @@
+@import "tailwindcss" source(none);
+@source "../index.html";
+@source "./";
+@import "tw-animate-css";
+@import "@fontsource-variable/inter";
+@import "@fontsource/jetbrains-mono/500.css";
+@import "leaflet/dist/leaflet.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ------------------------------------------------------------------
+   MPL 2027 — Design tokens (identité originale, accent vert MPL)
+   ------------------------------------------------------------------ */
+:root {
+  --background: oklch(0.985 0.004 150);
+  --foreground: oklch(0.2 0.03 165);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2 0.03 165);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2 0.03 165);
+  --primary: oklch(0.52 0.15 150);
+  --primary-foreground: oklch(0.99 0.01 150);
+  --secondary: oklch(0.955 0.01 150);
+  --secondary-foreground: oklch(0.28 0.04 165);
+  --muted: oklch(0.955 0.008 150);
+  --muted-foreground: oklch(0.46 0.02 165);
+  --accent: oklch(0.93 0.04 150);
+  --accent-foreground: oklch(0.28 0.06 160);
+  --destructive: oklch(0.5 0.2 27);
+  --border: oklch(0.9 0.01 150);
+  --input: oklch(0.9 0.01 150);
+  --ring: oklch(0.52 0.15 150);
+  --gold: oklch(0.53 0.11 78);
+  --info: oklch(0.5 0.14 245);
+  --warning: oklch(0.5 0.13 55);
+  --success: oklch(0.45 0.13 150);
+  --brand: oklch(0.2 0.03 165);
+  --radius: 0.75rem;
+  --mobile-nav-h: calc(4rem + env(safe-area-inset-bottom, 0px));
+  --hero-overlay: linear-gradient(180deg, oklch(0.18 0.04 165 / .78), oklch(0.15 0.04 165 / .95));
+}
+.dark {
+  --background: oklch(0.16 0.025 165);
+  --foreground: oklch(0.97 0.01 150);
+  --card: oklch(0.205 0.03 165);
+  --card-foreground: oklch(0.97 0.01 150);
+  --popover: oklch(0.22 0.03 165);
+  --popover-foreground: oklch(0.97 0.01 150);
+  --primary: oklch(0.74 0.19 150);
+  --primary-foreground: oklch(0.16 0.04 165);
+  --secondary: oklch(0.26 0.03 165);
+  --secondary-foreground: oklch(0.96 0.01 150);
+  --muted: oklch(0.25 0.03 165);
+  --muted-foreground: oklch(0.74 0.025 160);
+  --accent: oklch(0.3 0.05 160);
+  --accent-foreground: oklch(0.96 0.02 150);
+  --destructive: oklch(0.68 0.2 25);
+  --border: oklch(1 0 0 / 11%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.74 0.19 150);
+  --gold: oklch(0.82 0.14 85);
+  --info: oklch(0.74 0.12 240);
+  --warning: oklch(0.8 0.15 70);
+  --success: oklch(0.74 0.19 150);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-gold: var(--gold);
+  --color-info: var(--info);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  html { scroll-behavior: smooth; }
+  body { @apply bg-background text-foreground font-sans antialiased; font-feature-settings: "cv11", "ss01"; }
+  h1,h2,h3,h4 { letter-spacing: -0.02em; }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+  button, a, [role="tab"] { -webkit-tap-highlight-color: transparent; }
+}
+
+.num { font-variant-numeric: tabular-nums; }
+/* Zone tactile minimale 44 px sur écrans tactiles / mobiles (WCAG 2.5.5 visé ; 24 px = plancher WCAG 2.5.8) */
+@media (pointer: coarse) { .tap { min-height: 44px; min-width: 44px; } }
+.container-mpl { @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8; }
+.leaflet-container { font-family: var(--font-sans); background: var(--muted); border-radius: var(--radius-lg); }
+.dark .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.9) contrast(.9) saturate(.6); }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+@media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+
+/* Toasts riches : textes assombris en thème clair pour respecter le contraste AA (≥ 4.5:1). */
+[data-sonner-toaster][data-sonner-theme="light"] [data-sonner-toast][data-rich-colors="true"][data-type="success"] { --success-text: oklch(0.34 0.1 150); }
+[data-sonner-toaster][data-sonner-theme="light"] [data-sonner-toast][data-rich-colors="true"][data-type="error"] { --error-text: oklch(0.36 0.16 25); }
+[data-sonner-toaster][data-sonner-theme="light"] [data-sonner-toast][data-rich-colors="true"][data-type="warning"] { --warning-text: oklch(0.38 0.09 80); }
+
+/* 5B-1 — cible de focus programmatique (H1 / main) : pas d'anneau parasite, les contrôles interactifs gardent le leur. */
+main:focus, h1[tabindex="-1"]:focus { outline: none; }

@@ -1,0 +1,20 @@
+// Lot 5B-4 — traductions FR : administration (« À traiter », exports), état d'engagement Interclub du club, libellé organisateur.
+export const FR_5B4: Record<string, string> = {
+  "Match results to validate": "Résultats de matchs à valider",
+  "Club requests to process": "Demandes de clubs à traiter",
+  "Result corrections to review": "Corrections de résultats à examiner",
+  "Other items in the validation queue": "Autres éléments de la file de validation",
+  "Interclub engagement lines to instruct": "Lignes d'engagement Interclub à instruire",
+  "Commission tab — decisions are simulated": "Onglet Commission — décisions simulées",
+  "Interclub match sheets to check": "Feuilles de rencontre Interclub à contrôler",
+  "Matches tab": "Onglet Rencontres",
+  "Reports and exports": "Rapports et exports",
+  "CSV files of the current demonstration state (fictional data, unofficial).": "Fichiers CSV de l'état actuel de la démonstration (données fictives, non officielles).",
+  "CSV exported": "CSV exporté",
+  "Calendar 2027": "Calendrier 2027",
+  "Interclub engagements": "Engagements Interclub",
+  "Engagement file": "Dossier d'engagement",
+  "Player registrations to review": "Inscriptions de joueurs à examiner",
+  "Entered by players in this demo. The “To do” block also counts fictional pairs.": "Saisies par les joueurs dans cette démo. Le bloc « À traiter » compte aussi les paires fictives.",
+  "Type": "Type", "Title": "Titre", "Detail": "Détail", "By": "Par", "Date": "Date", "Actor": "Acteur", "Reference": "Référence", "Start": "Début", "End": "Fin", "Modified vs reference": "Modifié par rapport à la référence",
+};
