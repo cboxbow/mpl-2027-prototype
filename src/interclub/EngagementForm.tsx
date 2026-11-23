@@ -85,7 +85,7 @@ function Wizard({ d, canEdit }: { d: Dossier; canEdit: boolean }) {
         {step === 1 && <div className="grid gap-4 sm:grid-cols-2">
           <Field id="f-name" label={tr("Official club name")}><input id="f-name" className={field} value={form.club.officialName} onChange={(e) => up({ club: { ...form.club, officialName: e.target.value } })} /></Field>
           <Field id="f-legal" label={tr("Legal name / BRN")}><input id="f-legal" className={field} value={form.club.legalName} onChange={(e) => up({ club: { ...form.club, legalName: e.target.value } })} /></Field>
-          <Field id="f-reg" label={tr("MSRA registration no.")} hint={tr("Neutral label until the supervisory body is decided (DEC-IC-28).")}><input id="f-reg" className={field} value={form.club.regNo} onChange={(e) => up({ club: { ...form.club, regNo: e.target.value } })} /></Field>
+          <Field id="f-reg" label={tr("Padel Federation registration no.")} hint={tr("Supervisory body wording remains to be confirmed (DEC-IC-28).")}><input id="f-reg" className={field} value={form.club.regNo} onChange={(e) => up({ club: { ...form.club, regNo: e.target.value } })} /></Field>
           <Field id="f-addr" label={tr("Address")}><input id="f-addr" className={field} value={form.club.address} onChange={(e) => up({ club: { ...form.club, address: e.target.value } })} /></Field>
           <Field id="f-city" label={tr("City / region")}><input id="f-city" className={field} value={form.club.city} onChange={(e) => up({ club: { ...form.club, city: e.target.value } })} /></Field>
           <Field id="f-phone" label={tr("Phone")}><input id="f-phone" type="tel" className={field} value={form.club.phone} onChange={(e) => up({ club: { ...form.club, phone: e.target.value } })} /></Field>
